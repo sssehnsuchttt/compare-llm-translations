@@ -2,7 +2,8 @@ import csv
 import json
 import os
 import time
-from typing import TypedDict
+from typing import TypedDict, Any
+from enum import Enum
 
 from dotenv import load_dotenv
 from openai import OpenAI, OpenAIError
@@ -14,14 +15,41 @@ from rich.progress import Progress, BarColumn, TextColumn
 
 load_dotenv()
 
-api_key = os.getenv("API_KEY")
-if not api_key:
-    raise RuntimeError("Требуется API-ключ. Укажите ключ API_KEY в .env")
 
-client = OpenAI(
-    api_key=api_key,
-    base_url=os.getenv("API_BASE_URL"),
-)
+class Backend(str, Enum):
+    OPENROUTER = "openrouter"
+    NEUROAPI = "neuroapi"
+
+
+_clients_cache: dict[Backend, OpenAI] = {}
+
+
+def make_openai_client(backend: Backend) -> OpenAI:
+    """Создаёт `OpenAI` клиент для заданного backend.
+
+    Поддерживаемые значения: "openrouter", "neuroapi".
+    Для каждого бэкенда читаются свои переменные окружения для ключа и base_url.
+    """
+    
+    if backend == Backend.OPENROUTER:
+        key = os.getenv("OPEN_ROUTER_API_KEY")
+        base = os.getenv("OPEN_ROUTER_API_BASE_URL")
+        if not key:
+            raise RuntimeError(
+                "Требуется OPEN_ROUTER_API_KEY для openrouter"
+            )
+        return OpenAI(api_key=key, base_url=base)
+
+    if backend == Backend.NEUROAPI:
+        key = os.getenv("NEURO_API_KEY")
+        base = os.getenv("NEURO_API_BASE_URL")
+        if not key:
+            raise RuntimeError(
+                "Требуется NEURO_API_KEY для neuroapi"
+            )
+        return OpenAI(api_key=key, base_url=base)
+
+    raise RuntimeError(f"Неизвестный backend: {backend}")
 
 
 class ModelTranslation(TypedDict):
@@ -49,10 +77,10 @@ class RatedTranslation(TypedDict):
     ratings: TranslationRating
 
 
-MODELS: dict[str, str] = {
-    "gpt-5": "gpt-5-nano",
-    "grok-4-fast": "grok-4-fast-non-reasoning",
-    "gemini-2.0-flash-lite": "gemini-2.5-flash-lite",
+MODELS: dict[str, dict[str, Any]] = {
+    "gpt-5": {"model": "gpt-5-nano", "backend": Backend.NEUROAPI},
+    "grok-4.1-fast": {"model": "x-ai/grok-4.1-fast:free", "backend": Backend.OPENROUTER},
+    "gemini-2.0-flash-lite": {"model": "gemini-2.5-flash-lite", "backend": Backend.NEUROAPI},
 }
 
 SYSTEM_PROMPT = """
@@ -96,11 +124,18 @@ def translate_dataset(console: Console) -> list[DatasetItem]:
                 "translations": [],
             }
 
-            for model_name, model in MODELS.items():
+            for model_name, info in MODELS.items():
+                model_id = info["model"]
+                backend = info.get("backend", Backend.OPENROUTER)
+
+                client = _clients_cache.get(backend)
+                if client is None:
+                    client = make_openai_client(backend)
+                    _clients_cache[backend] = client
 
                 try:
                     response = client.chat.completions.create(
-                        model=model,
+                        model=model_id,
                         messages=[
                             {"role": "system", "content": SYSTEM_PROMPT},
                             {"role": "user", "content": row["text"]},
@@ -118,7 +153,7 @@ def translate_dataset(console: Console) -> list[DatasetItem]:
                     raise RuntimeError("Пустой ответ от модели")
 
                 translated_text = message.content
-                
+
                 item["translations"].append(
                     {
                         "model": model_name,
