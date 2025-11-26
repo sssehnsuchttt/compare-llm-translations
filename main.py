@@ -79,7 +79,7 @@ class RatedTranslation(TypedDict):
 
 # С neuroapi не работал grok, а с openrouter не работал gemini, поэтому реализована возможность выбирать бэкенд для каждой модели
 MODELS: dict[str, dict[str, Any]] = {
-    "gpt-5": {"model": "gpt-5-nano", "backend": Backend.NEUROAPI},
+    "gpt-5-nano": {"model": "gpt-5-nano", "backend": Backend.NEUROAPI},
     "grok-4.1-fast": {"model": "x-ai/grok-4.1-fast:free", "backend": Backend.OPENROUTER},
     "gemini-2.0-flash-lite": {"model": "gemini-2.5-flash-lite", "backend": Backend.NEUROAPI},
 }
