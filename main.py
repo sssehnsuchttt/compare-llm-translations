@@ -25,7 +25,7 @@ _clients_cache: dict[Backend, OpenAI] = {}
 
 
 def make_openai_client(backend: Backend) -> OpenAI:
-    """Создаёт `OpenAI` клиент для заданного backend.
+    """Создаёт OpenAI клиент для заданного backend.
 
     Поддерживаемые значения: "openrouter", "neuroapi".
     Для каждого бэкенда читаются свои переменные окружения для ключа и base_url.
@@ -98,6 +98,10 @@ Your task:
 
 
 def translate_dataset(console: Console) -> list[DatasetItem]:
+    """
+    Проходит по всем записям в dataset.csv и получает переводы от всех моделей.
+    Возвращает список с оригинальными текстами и переводами.
+    """
     translations: list[DatasetItem] = []
 
     with open("dataset.csv", "r", encoding="utf-8", newline="") as f:
@@ -200,6 +204,8 @@ def rate_translation(
     translated_text: str,
     model_name: str,
 ) -> RatedTranslation:
+    """Интерактивно оценивает перевод по трём критериям.
+    """
     console.clear()
 
     console.rule(f"Оценка качества перевода модели [bold]{model_name}[/bold]")
@@ -256,6 +262,10 @@ def rate_translation(
 
 
 def show_summary_table(console: Console, ratings: list[RatedTranslation]) -> None:
+    """
+    Отображает итоговую таблицу с усреднёнными результатами по моделям.
+    Итоговая оценка рассчитывается как среднее арифметическое трёх критериев.
+    """
     summary: dict[str, dict[str, float | int]] = {}
 
     for r in ratings:
