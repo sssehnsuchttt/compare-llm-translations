@@ -77,6 +77,7 @@ class RatedTranslation(TypedDict):
     ratings: TranslationRating
 
 
+# С neuroapi не работал grok, а с openrouter не работал gemini, поэтому реализована возможность выбирать бэкенд для каждой модели
 MODELS: dict[str, dict[str, Any]] = {
     "gpt-5": {"model": "gpt-5-nano", "backend": Backend.NEUROAPI},
     "grok-4.1-fast": {"model": "x-ai/grok-4.1-fast:free", "backend": Backend.OPENROUTER},
@@ -324,6 +325,10 @@ def main():
     console = Console()
 
     translations = translate_dataset(console)
+
+    with open("translations.json", "w", encoding="utf-8") as f:
+        json.dump(translations, f, ensure_ascii=False, indent=2)
+
     all_ratings: list[RatedTranslation] = []
 
     for item in translations:
@@ -338,9 +343,6 @@ def main():
             all_ratings.append(rating)
 
     show_summary_table(console, all_ratings)
-
-    with open("translations.json", "w", encoding="utf-8") as f:
-        json.dump(translations, f, ensure_ascii=False, indent=2)
 
     output_path = "ratings.json"
     with open(output_path, "w", encoding="utf-8") as f:
